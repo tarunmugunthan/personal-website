@@ -1,0 +1,16 @@
+siteName: Tarun Mugunthan
+tagline: Design, code, and things in between
+metaDescription: >-
+  Personal website of Tarun Mugunthan — projects, experiments, and writing.
+homeIntro: >-
+  Hi, I'm Tarun. I design and build things for the web. This is a small
+  collection of projects I've enjoyed making — some polished, some
+  experiments that got out of hand.
+homeOutro: >-
+  Thanks for scrolling all the way down. This site is a living document —
+  new projects show up here as they're finished, and old ones occasionally
+  get revisited.
+email: tarun18nov@gmail.com
+socials:
+  - label: GitHub
+    url: https://github.com/tarunmugunthan

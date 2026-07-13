@@ -1,0 +1,127 @@
+---
+import { getCollection } from 'astro:content';
+import { Image } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+import WaterHero from '../components/WaterHero.astro';
+import settings from '../lib/settings';
+
+const all = await getCollection('projects');
+const visible = import.meta.env.PROD
+  ? all.filter((p) => p.data.status === 'published')
+  : all; // drafts visible in dev only
+
+const projects = visible.sort(
+  (a, b) =>
+    a.data.order - b.data.order ||
+    b.data.date.valueOf() - a.data.date.valueOf()
+);
+
+const formatDate = (d: Date) =>
+  d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+---
+
+<Base showNav={false}>
+  <WaterHero title={settings.siteName} subtitle={settings.tagline ?? undefined} />
+
+  <main class="wrap">
+    <section class="intro">
+      <p>
+        {settings.homeIntro}
+        <a href="/about/">More about me →</a>
+      </p>
+    </section>
+
+    <section class="projects" aria-label="Projects">
+      <div class="grid">
+        {
+          projects.map((p) => (
+            <a class="card" href={`/projects/${p.id}/`}>
+              <Image
+                src={p.data.coverImage}
+                alt={p.data.coverAlt}
+                widths={[400, 640, 960]}
+                sizes="(max-width: 640px) 100vw, (max-width: 1040px) 50vw, 33vw"
+                loading="lazy"
+                decoding="async"
+              />
+              <h3>{p.data.title}</h3>
+              <p class="summary">{p.data.summary}</p>
+              <p class="date">{formatDate(p.data.date)}</p>
+            </a>
+          ))
+        }
+      </div>
+    </section>
+
+    {
+      settings.homeOutro && (
+        <section class="outro">
+          <p>{settings.homeOutro}</p>
+        </section>
+      )
+    }
+  </main>
+</Base>
+
+<style>
+  .intro {
+    padding: 5rem 0 4rem;
+  }
+
+  .intro p {
+    max-width: 42rem;
+    margin: 0;
+    font-size: 1.35rem;
+    line-height: 1.55;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2.5rem 2rem;
+  }
+
+  .card {
+    display: block;
+    text-decoration: none;
+  }
+
+  .card img {
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+
+  .card h3 {
+    margin: 1rem 0 0.25rem;
+    font-size: 1.2rem;
+  }
+
+  .card:hover h3 {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  .card .summary {
+    margin: 0 0 0.35rem;
+    color: var(--ink);
+  }
+
+  .card .date {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .outro {
+    padding: 4.5rem 0 0;
+  }
+
+  .outro p {
+    max-width: 42rem;
+    margin: 0;
+    font-size: 1.2rem;
+    line-height: 1.6;
+  }
+</style>

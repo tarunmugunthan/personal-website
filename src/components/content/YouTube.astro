@@ -1,0 +1,49 @@
+---
+interface Props {
+  url: string;
+  caption?: string;
+}
+const { url, caption } = Astro.props;
+
+function extractId(u: string): string | null {
+  try {
+    const parsed = new URL(u);
+    if (parsed.hostname.includes('youtu.be')) return parsed.pathname.slice(1) || null;
+    if (parsed.searchParams.get('v')) return parsed.searchParams.get('v');
+    const m = parsed.pathname.match(/\/(embed|shorts|live)\/([\w-]+)/);
+    return m ? m[2] : null;
+  } catch {
+    return null;
+  }
+}
+
+const id = extractId(url);
+if (!id) throw new Error(`Could not parse YouTube URL: ${url}`);
+---
+
+<figure>
+  <div class="video-embed">
+    <iframe
+      src={`https://www.youtube-nocookie.com/embed/${id}`}
+      title={caption ?? 'YouTube video'}
+      loading="lazy"
+      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen
+    />
+  </div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .video-embed {
+    position: relative;
+    aspect-ratio: 16 / 9;
+  }
+  .video-embed iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+</style>

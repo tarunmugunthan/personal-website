@@ -1,0 +1,93 @@
+---
+import { getCollection, render } from 'astro:content';
+import { Image } from 'astro:assets';
+import Base from '../../layouts/Base.astro';
+
+export async function getStaticPaths() {
+  const all = await getCollection('projects');
+  const visible = import.meta.env.PROD
+    ? all.filter((p) => p.data.status === 'published')
+    : all;
+
+  return visible.map((project) => ({
+    params: { slug: project.id },
+    props: { project },
+  }));
+}
+
+const { project } = Astro.props;
+const { Content } = await render(project);
+
+const formatDate = (d: Date) =>
+  d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+---
+
+<Base title={project.data.title} description={project.data.summary}>
+  <main class="wrap">
+    <article>
+      <header class="project-header">
+        <h1>{project.data.title}</h1>
+        <p class="meta">
+          {formatDate(project.data.date)}{project.data.role && ` · ${project.data.role}`}
+        </p>
+      </header>
+
+      <Image
+        class="cover"
+        src={project.data.coverImage}
+        alt={project.data.coverAlt}
+        widths={[800, 1200, 1800]}
+        sizes="(max-width: 1040px) 100vw, 992px"
+        loading="eager"
+      />
+
+      <div class="prose">
+        <Content />
+      </div>
+
+      {
+        project.data.links.length > 0 && (
+          <ul class="links">
+            {project.data.links.map((l) => (
+              <li>
+                <a href={l.url} rel="noopener">
+                  {l.label} →
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </article>
+  </main>
+</Base>
+
+<style>
+  .project-header {
+    padding: 4rem 0 2rem;
+  }
+
+  .project-header h1 {
+    margin: 0 0 0.4rem;
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
+  }
+
+  .meta {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .cover {
+    width: 100%;
+    margin-bottom: 3rem;
+  }
+
+  .links {
+    list-style: none;
+    margin: 3rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+</style>

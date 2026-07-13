@@ -1,0 +1,214 @@
+---
+import settings from '../lib/settings';
+
+interface Props {
+  title?: string;
+  description?: string;
+  showNav?: boolean;
+}
+
+const { title, description = settings.metaDescription ?? '', showNav = true } = Astro.props;
+const pageTitle = title ? `${title} — ${settings.siteName}` : settings.siteName;
+const year = new Date().getFullYear();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{pageTitle}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@300;400;600&family=Faculty+Glyphic&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    {
+      showNav && (
+        <nav class="site-nav">
+          <div class="wrap nav-row">
+            <a href="/">{settings.siteName}</a>
+            <a href="/about/">About</a>
+          </div>
+        </nav>
+      )
+    }
+
+    <slot />
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <h2>Contact</h2>
+        {
+          settings.email && (
+            <p class="footer-email">
+              <a href={`mailto:${settings.email}`}>{settings.email}</a>
+            </p>
+          )
+        }
+        {
+          settings.socials.length > 0 && (
+            <ul class="socials">
+              {settings.socials.map((s) => (
+                <li>
+                  <a href={s.url ?? '#'} rel="me noopener">
+                    {s.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+        <p class="fineprint">© {year} {settings.siteName}</p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #6f6f6f;
+    --rule: #e6e6e6;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    background: #fff;
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+    font-weight: 300;
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    color: var(--ink);
+    background: #fff;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: 'Faculty Glyphic', serif;
+    font-weight: 400;
+    line-height: 1.2;
+    margin: 0 0 0.6em;
+  }
+
+  a {
+    color: inherit;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  strong {
+    font-weight: 600;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  figure {
+    margin: 2.5rem 0;
+  }
+
+  figcaption {
+    margin-top: 0.6rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .wrap {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Nav (non-home pages) */
+  .site-nav {
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .nav-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-top: 1.1rem;
+    padding-bottom: 1.1rem;
+  }
+
+  .nav-row a {
+    text-decoration: none;
+  }
+
+  .nav-row a:first-child {
+    font-family: 'Faculty Glyphic', serif;
+    font-size: 1.15rem;
+  }
+
+  .nav-row a:hover {
+    text-decoration: underline;
+  }
+
+  /* Long-form content (Markdoc output) */
+  .prose {
+    max-width: 42rem;
+  }
+
+  .prose > :first-child {
+    margin-top: 0;
+  }
+
+  .prose h2 {
+    margin-top: 2.5rem;
+  }
+
+  .prose h3 {
+    margin-top: 2rem;
+  }
+
+  /* Footer */
+  .site-footer {
+    border-top: 1px solid var(--rule);
+    margin-top: 6rem;
+    padding: 3.5rem 0 3rem;
+  }
+
+  .site-footer h2 {
+    font-size: 1.3rem;
+  }
+
+  .footer-email {
+    margin: 0 0 0.5rem;
+  }
+
+  .socials {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+  }
+
+  .fineprint {
+    margin-top: 2.5rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+</style>

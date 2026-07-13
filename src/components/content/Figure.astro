@@ -1,0 +1,31 @@
+---
+import { Image } from 'astro:assets';
+
+interface Props {
+  src: string;
+  alt?: string;
+  caption?: string;
+}
+const { src, alt = '', caption } = Astro.props;
+
+// Eagerly glob every possible project image so Vite can statically analyze it.
+const images = import.meta.glob<{ default: ImageMetadata }>(
+  '/src/assets/images/**/*.{jpeg,jpg,png,gif,webp,avif}'
+);
+
+const loader = images[src];
+if (!loader) throw new Error(`Image not found: ${src}`);
+const image = (await loader()).default;
+---
+
+<figure>
+  <Image
+    src={image}
+    alt={alt}
+    widths={[480, 800, 1200]}
+    sizes="(max-width: 800px) 100vw, 800px"
+    loading="lazy"
+    decoding="async"
+  />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
