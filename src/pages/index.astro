@@ -21,7 +21,7 @@ const formatDate = (d: Date) =>
 ---
 
 <Base showNav={false}>
-  <WaterHero title={settings.siteName} subtitle={settings.tagline ?? undefined} />
+  <WaterHero siteName={settings.siteName} text={settings.heroText || settings.siteName} />
 
   <main class="wrap">
     <section class="intro">

@@ -1,17 +1,17 @@
 ---
 interface Props {
-  title: string;
-  subtitle?: string;
+  siteName: string;
+  text: string;
 }
-const { title, subtitle } = Astro.props;
+const { siteName, text } = Astro.props;
 ---
 
 <header class="water-hero">
   <canvas id="gl"></canvas>
   <pre id="err"></pre>
+  <h1 class="sr-only">{siteName}</h1>
   <div class="hero-text">
-    <h1>{title}</h1>
-    {subtitle && <p>{subtitle}</p>}
+    <p>{text}</p>
   </div>
 </header>
 
@@ -58,17 +58,23 @@ const { title, subtitle } = Astro.props;
     color: #fff;
     padding: 0 24px;
   }
-  .hero-text h1 {
-    margin: 0 0 0.35em;
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
-    text-shadow: 0 2px 28px rgba(6, 19, 28, 0.5);
-  }
   .hero-text p {
     margin: 0;
-    font-size: clamp(1.05rem, 2vw, 1.35rem);
-    font-weight: 300;
-    opacity: 0.92;
-    text-shadow: 0 1px 18px rgba(6, 19, 28, 0.5);
+    max-width: 34rem;
+    font-family: 'Faculty Glyphic', serif;
+    font-size: clamp(1.35rem, 2.6vw, 1.85rem);
+    line-height: 1.45;
+    text-shadow: 0 2px 24px rgba(6, 19, 28, 0.5);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 </style>
 

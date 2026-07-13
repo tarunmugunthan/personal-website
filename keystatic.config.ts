@@ -186,6 +186,11 @@ export default config({
       schema: {
         siteName: fields.text({ label: 'Site name', validation: { isRequired: true } }),
         tagline: fields.text({ label: 'Tagline' }),
+        heroText: fields.text({
+          label: 'Hero text',
+          description: 'Short paragraph (2–3 lines) centered over the water animation.',
+          multiline: true,
+        }),
         metaDescription: fields.text({
           label: 'Default meta description',
           multiline: true,
