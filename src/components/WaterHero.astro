@@ -367,15 +367,13 @@ const { siteName, text } = Astro.props;
       vec2 cell   = floor(gl_FragCoord.xy / uCell);
       vec2 inCell = (gl_FragCoord.xy - cell * uCell) / uCell;
 
-      // rectangular gap in the glyph field: pure black inside, and the
-      // surrounding cells dim over a few cells so the water dissolves into it
+      // rectangular gap in the glyph field: the animation simply stops here —
+      // cells inside are pure black, cells outside render at full strength
       vec2 dOut = max(uHole.xy - cell, cell - uHole.zw);
-      float dRect = max(dOut.x, dOut.y);
-      if (dRect <= 0.0) {
+      if (max(dOut.x, dOut.y) <= 0.0) {
         gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
         return;
       }
-      float holeFade = smoothstep(0.0, 3.5, dRect);
 
       vec3 raw = texture2D(uScene, (cell + 0.5) / uGrid).rgb;
       vec3 c = punch(raw, uContrast);
@@ -402,8 +400,6 @@ const { siteName, text } = Astro.props;
 
       vec2 q = gl_FragCoord.xy / uRes;
       col *= 0.78 + 0.22 * pow(16.0 * q.x * q.y * (1.0 - q.x) * (1.0 - q.y), 0.18);
-
-      col *= holeFade;
 
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
@@ -685,7 +681,7 @@ const { siteName, text } = Astro.props;
 
     // centered rectangular gap for the hero text, snapped to whole cells
     const gw = Math.min(680 * dpr, w * 0.88);
-    const gh = Math.min(520 * dpr, h * 0.64);
+    const gh = Math.min(240 * dpr, h * 0.32);
     hole[0] = Math.round((w - gw) / 2 / cellW);
     hole[1] = Math.round((h - gh) / 2 / cellH);
     hole[2] = Math.round((w + gw) / 2 / cellW) - 1;
