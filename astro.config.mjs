@@ -10,7 +10,7 @@ import keystatic from '@keystatic/astro';
 // https://astro.build/config
 export default defineConfig({
   // TODO: change to your custom domain once you have one
-  site: 'https://tarunmugunthan.netlify.app',
+  site: 'https://tarunspersonalsite.netlify.app',
   output: 'static',
   adapter: netlify(),
   integrations: [react(), markdoc(), keystatic(), sitemap()],
