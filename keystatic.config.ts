@@ -38,14 +38,10 @@ const figure = block({
 /* ---------- Config ---------- */
 
 export default config({
-  // Phase 6: swap to the github block below to publish from any browser.
   storage: {
-    kind: 'local',
+    kind: 'github',
+    repo: { owner: 'tarunmugunthan', name: 'personal-website' },
   },
-  // storage: {
-  //   kind: 'github',
-  //   repo: { owner: 'tarunmugunthan', name: 'personal-website' },
-  // },
 
   ui: {
     brand: { name: 'Tarun Mugunthan' },
