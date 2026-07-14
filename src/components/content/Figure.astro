@@ -5,8 +5,9 @@ interface Props {
   src: string;
   alt?: string;
   caption?: string;
+  size?: 'small' | 'medium' | 'large';
 }
-const { src, alt = '', caption } = Astro.props;
+const { src, alt = '', caption, size = 'medium' } = Astro.props;
 
 // Eagerly glob every possible project image so Vite can statically analyze it.
 const images = import.meta.glob<{ default: ImageMetadata }>(
@@ -16,16 +17,44 @@ const images = import.meta.glob<{ default: ImageMetadata }>(
 const loader = images[src];
 if (!loader) throw new Error(`Image not found: ${src}`);
 const image = (await loader()).default;
+
+const sizesAttr = {
+  small: '(max-width: 480px) 100vw, 384px',
+  medium: '(max-width: 800px) 100vw, 736px',
+  large: '(max-width: 1040px) 100vw, 992px',
+}[size];
 ---
 
-<figure>
+<figure class={`fig-${size}`}>
   <Image
     src={image}
     alt={alt}
     widths={[480, 800, 1200]}
-    sizes="(max-width: 800px) 100vw, 800px"
+    sizes={sizesAttr}
     loading="lazy"
     decoding="async"
   />
   {caption && <figcaption>{caption}</figcaption>}
 </figure>
+
+<style>
+  figure {
+    margin-inline: auto;
+  }
+
+  figure img {
+    width: 100%;
+  }
+
+  .fig-small {
+    max-width: 24rem;
+  }
+
+  .fig-medium {
+    max-width: 46rem;
+  }
+
+  .fig-large {
+    max-width: none;
+  }
+</style>

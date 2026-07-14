@@ -46,6 +46,16 @@ const figure = block({
       description: 'Describe the image for screen readers. Leave blank if decorative.',
     }),
     caption: fields.text({ label: 'Caption' }),
+    size: fields.select({
+      label: 'Size',
+      description: 'Medium matches the reading column; large spans the full width like the cover.',
+      options: [
+        { label: 'Small', value: 'small' },
+        { label: 'Medium', value: 'medium' },
+        { label: 'Large', value: 'large' },
+      ],
+      defaultValue: 'medium',
+    }),
   },
 });
 

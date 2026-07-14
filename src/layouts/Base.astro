@@ -232,10 +232,12 @@ const year = new Date().getFullYear();
     margin-top: 0.5rem;
   }
 
-  /* Tables span the full width */
+  /* Tables size to their content: sparse tables stay compact and
+     centered, text-heavy ones stretch up to the full page width */
   .prose table {
-    width: 100%;
-    margin: 2.5rem 0;
+    width: fit-content;
+    max-width: 100%;
+    margin: 2.5rem auto;
     border-collapse: collapse;
     font-size: 0.95rem;
     line-height: 1.55;
@@ -255,9 +257,12 @@ const year = new Date().getFullYear();
     background: rgba(255, 255, 255, 0.045);
   }
 
-  /* Code blocks (Shiki adds its own background) */
+  /* Code blocks (Shiki adds its own background) size to their
+     content, capped at the reading column; long lines scroll */
   .prose pre {
-    margin: 2.5rem 0;
+    width: fit-content;
+    max-width: min(46rem, 100%);
+    margin: 2.5rem auto;
     padding: 1.25rem 1.5rem;
     border: 1px solid var(--rule);
     border-radius: 8px;

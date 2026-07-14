@@ -19,6 +19,7 @@ export default defineMarkdocConfig({
         src: { type: String, required: true },
         alt: { type: String },
         caption: { type: String },
+        size: { type: String, matches: ['small', 'medium', 'large'] },
       },
     },
   },
