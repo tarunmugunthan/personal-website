@@ -1,6 +1,19 @@
 import { config, fields, collection, singleton } from '@keystatic/core';
 import { block } from '@keystatic/core/content-components';
 
+// Keystatic's GitHub mode chokes on spaces/parentheses in uploaded
+// filenames (mis-decoded paths break every later save of the entry),
+// so every image field sanitises names on upload.
+const safeFilename = (filename: string) => {
+  const dot = filename.lastIndexOf('.');
+  const base = (dot === -1 ? filename : filename.slice(0, dot))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const ext = dot === -1 ? '' : filename.slice(dot).toLowerCase();
+  return (base || 'image') + ext;
+};
+
 /* ---------- Content components (the editor's insert menu) ---------- */
 
 const youtube = block({
@@ -25,6 +38,7 @@ const figure = block({
       // MUST start with /src/ for content-component images (dynamic import).
       // This differs from frontmatter images below.
       publicPath: '/src/assets/images/projects/',
+      transformFilename: safeFilename,
       validation: { isRequired: true },
     }),
     alt: fields.text({
@@ -115,6 +129,7 @@ export default config({
           directory: 'src/assets/images/projects',
           // Frontmatter images use the @assets alias (NOT /src/).
           publicPath: '@assets/images/projects/',
+          transformFilename: safeFilename,
           validation: { isRequired: true },
         }),
 
@@ -140,6 +155,7 @@ export default config({
             image: {
               directory: 'src/assets/images/projects',
               publicPath: '@assets/images/projects/',
+              transformFilename: safeFilename,
             },
           },
           components: { youtube, figure },
@@ -160,6 +176,7 @@ export default config({
           label: 'Portrait',
           directory: 'src/assets/images/about',
           publicPath: '@assets/images/about/',
+          transformFilename: safeFilename,
         }),
         portraitAlt: fields.text({ label: 'Portrait alt text' }),
         content: fields.markdoc({
@@ -168,6 +185,7 @@ export default config({
             image: {
               directory: 'src/assets/images/about',
               publicPath: '@assets/images/about/',
+              transformFilename: safeFilename,
             },
           },
           components: { youtube, figure },
