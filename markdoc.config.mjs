@@ -1,6 +1,10 @@
 import { defineMarkdocConfig, component } from '@astrojs/markdoc/config';
+import shiki from '@astrojs/markdoc/shiki';
 
 export default defineMarkdocConfig({
+  extends: [
+    shiki({ theme: 'github-dark' }),
+  ],
   tags: {
     youtube: {
       render: component('./src/components/content/YouTube.astro'),

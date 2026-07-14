@@ -181,21 +181,117 @@ const year = new Date().getFullYear();
     text-decoration: underline;
   }
 
-  /* Long-form content (Markdoc output) */
-  .prose {
-    max-width: 42rem;
-  }
-
+  /* Long-form content (Markdoc output).
+     Text sits in a centered reading column; tables, code blocks, and
+     images stretch across the full width of the page. */
   .prose > :first-child {
     margin-top: 0;
   }
 
+  .prose p,
+  .prose ul,
+  .prose ol,
+  .prose blockquote,
+  .prose hr,
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4,
+  .prose h5,
+  .prose h6 {
+    max-width: 46rem;
+    margin-inline: auto;
+  }
+
+  /* Consistent heading hierarchy — the browser default shrinks h1
+     inside <article>, which inverted the scale. Space above scales
+     with heading size to break up the page. */
+  .prose h1 {
+    font-size: 2rem;
+    margin-block: 3.5rem 1rem;
+  }
+
   .prose h2 {
-    margin-top: 2.5rem;
+    font-size: 1.6rem;
+    margin-block: 3rem 0.9rem;
   }
 
   .prose h3 {
-    margin-top: 2rem;
+    font-size: 1.3rem;
+    margin-block: 2.4rem 0.8rem;
+  }
+
+  .prose h4,
+  .prose h5,
+  .prose h6 {
+    font-size: 1.1rem;
+    margin-block: 2rem 0.7rem;
+  }
+
+  .prose :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
+    margin-top: 0.5rem;
+  }
+
+  /* Tables span the full width */
+  .prose table {
+    width: 100%;
+    margin: 2.5rem 0;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  .prose th,
+  .prose td {
+    border: 1px solid var(--rule);
+    padding: 0.65rem 0.9rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .prose th {
+    font-weight: 600;
+    color: var(--bright);
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  /* Code blocks (Shiki adds its own background) */
+  .prose pre {
+    margin: 2.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
+  .prose :not(pre) > code {
+    font-family: ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9em;
+    background: rgba(255, 255, 255, 0.09);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+  }
+
+  .prose blockquote {
+    border-left: 3px solid rgba(255, 255, 255, 0.35);
+    padding-left: 1.25rem;
+    color: var(--muted);
+  }
+
+  .prose blockquote > :first-child {
+    margin-top: 0;
+  }
+
+  .prose blockquote > :last-child {
+    margin-bottom: 0;
+  }
+
+  .prose hr {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin-block: 3rem;
   }
 
   /* Footer */
