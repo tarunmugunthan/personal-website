@@ -59,9 +59,10 @@ const { siteName, text } = Astro.props;
     padding: 24px;
   }
   .hero-panel {
-    background: #000;
-    max-width: 36rem;
-    padding: 2.75rem 3.25rem;
+    /* the black rectangle is carved out of the simulation itself;
+       this only sizes the text to sit inside that gap */
+    max-width: 32rem;
+    padding: 0 1.5rem;
     text-align: center;
   }
   .hero-panel p {
@@ -70,11 +71,6 @@ const { siteName, text } = Astro.props;
     font-size: clamp(1.3rem, 2.4vw, 1.75rem);
     line-height: 1.5;
     color: #f5f5f5;
-  }
-  @media (max-width: 600px) {
-    .hero-panel {
-      padding: 2rem 1.75rem;
-    }
   }
   .sr-only {
     position: absolute;
@@ -361,6 +357,7 @@ const { siteName, text } = Astro.props;
     uniform float uBg;
     uniform float uContrast;
     uniform float uLift;
+    uniform vec4  uHole;      // centered text gap, in cell coords: x0, y0, x1, y1
 
     vec3 punch(vec3 c, float k) {
       return clamp((c - 0.5) * k + 0.5, 0.0, 1.0);
@@ -369,6 +366,16 @@ const { siteName, text } = Astro.props;
     void main() {
       vec2 cell   = floor(gl_FragCoord.xy / uCell);
       vec2 inCell = (gl_FragCoord.xy - cell * uCell) / uCell;
+
+      // rectangular gap in the glyph field: pure black inside, and the
+      // surrounding cells dim over a few cells so the water dissolves into it
+      vec2 dOut = max(uHole.xy - cell, cell - uHole.zw);
+      float dRect = max(dOut.x, dOut.y);
+      if (dRect <= 0.0) {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+      }
+      float holeFade = smoothstep(0.0, 3.5, dRect);
 
       vec3 raw = texture2D(uScene, (cell + 0.5) / uGrid).rgb;
       vec3 c = punch(raw, uContrast);
@@ -395,6 +402,8 @@ const { siteName, text } = Astro.props;
 
       vec2 q = gl_FragCoord.xy / uRes;
       col *= 0.78 + 0.22 * pow(16.0 * q.x * q.y * (1.0 - q.x) * (1.0 - q.y), 0.18);
+
+      col *= holeFade;
 
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
@@ -460,6 +469,7 @@ const { siteName, text } = Astro.props;
     bg:       gl.getUniformLocation(asciiPM, 'uBg'),
     contrast: gl.getUniformLocation(asciiPM, 'uContrast'),
     lift:     gl.getUniformLocation(asciiPM, 'uLift'),
+    hole:     gl.getUniformLocation(asciiPM, 'uHole'),
   };
 
   const ORBIT = 6.39;   // must match the shader
@@ -559,6 +569,7 @@ const { siteName, text } = Astro.props;
   const fbo = gl.createFramebuffer();
 
   let cols = 0, rows = 0, cellW = 0, cellH = 0, aspect = 1;
+  const hole = new Float32Array(4);   // text gap bounds, in cell coords
 
   // ---- colours -------------------------------------------------------------
   const hexToRgb = (hex) => {
@@ -672,6 +683,14 @@ const { siteName, text } = Astro.props;
     cellW = Math.max(2, CONFIG.cellW * dpr);
     cellH = Math.max(2, CONFIG.cellH * dpr);
 
+    // centered rectangular gap for the hero text, snapped to whole cells
+    const gw = Math.min(680 * dpr, w * 0.88);
+    const gh = Math.min(520 * dpr, h * 0.64);
+    hole[0] = Math.round((w - gw) / 2 / cellW);
+    hole[1] = Math.round((h - gh) / 2 / cellH);
+    hole[2] = Math.round((w + gw) / 2 / cellW) - 1;
+    hole[3] = Math.round((h + gh) / 2 / cellH) - 1;
+
     const nc = Math.max(1, Math.ceil(w / cellW));
     const nr = Math.max(1, Math.ceil(h / cellH));
     if (nc !== cols || nr !== rows) {
@@ -748,6 +767,7 @@ const { siteName, text } = Astro.props;
     gl.uniform1f(A.bg, CONFIG.glowBg);
     gl.uniform1f(A.contrast, CONFIG.contrast);
     gl.uniform1f(A.lift, CONFIG.lift);
+    gl.uniform4fv(A.hole, hole);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     requestAnimationFrame(frame);
