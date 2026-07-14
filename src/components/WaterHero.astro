@@ -31,7 +31,9 @@ const { siteName, text } = Astro.props;
     width: 100%;
     height: 100%;
     display: block;
-    touch-action: none;
+    /* pan-y keeps vertical swipes scrolling the page on touch screens;
+       taps still land as pointerdown ripples */
+    touch-action: pan-y;
     cursor: crosshair;
   }
   #err {
