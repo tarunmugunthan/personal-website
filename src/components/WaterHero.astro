@@ -11,7 +11,9 @@ const { siteName, text } = Astro.props;
   <pre id="err"></pre>
   <h1 class="sr-only">{siteName}</h1>
   <div class="hero-text">
-    <p>{text}</p>
+    <div class="hero-panel">
+      <p>{text}</p>
+    </div>
   </div>
 </header>
 
@@ -20,7 +22,7 @@ const { siteName, text } = Astro.props;
     position: relative;
     height: 100vh;
     height: 100svh;
-    background: #06131c;
+    background: #02080c;
     overflow: hidden;
   }
   #gl {
@@ -38,7 +40,7 @@ const { siteName, text } = Astro.props;
     display: none;
     place-items: center;
     padding: 32px;
-    background: #06131c;
+    background: #02080c;
     color: #ff9d8a;
     font-family: ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
     font-size: 12px;
@@ -53,18 +55,26 @@ const { siteName, text } = Astro.props;
     z-index: 2;
     display: grid;
     place-items: center;
-    text-align: center;
     pointer-events: none;
-    color: #fff;
-    padding: 0 24px;
+    padding: 24px;
   }
-  .hero-text p {
+  .hero-panel {
+    background: #000;
+    max-width: 36rem;
+    padding: 2.75rem 3.25rem;
+    text-align: center;
+  }
+  .hero-panel p {
     margin: 0;
-    max-width: 34rem;
     font-family: 'Faculty Glyphic', serif;
-    font-size: clamp(1.35rem, 2.6vw, 1.85rem);
-    line-height: 1.45;
-    text-shadow: 0 2px 24px rgba(6, 19, 28, 0.5);
+    font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+    line-height: 1.5;
+    color: #f5f5f5;
+  }
+  @media (max-width: 600px) {
+    .hero-panel {
+      padding: 2rem 1.75rem;
+    }
   }
   .sr-only {
     position: absolute;
@@ -81,15 +91,30 @@ const { siteName, text } = Astro.props;
 <script is:inline>
 (() => {
   // ---- settings -----------------------------------------------------------
-  // Everything tunable lives here. No panel, no URL state, no storage.
   const CONFIG = {
-    wind:     0.29,      // 0..1   wave height + choppiness
-    angle:    20,        // 20..89 camera elevation above the water, degrees
-    sun:      0.37,      // 0..1   sun height in the sky
-    speed:    0.75,      // 0.25..2.6  ripple wavefront speed
-    sunCol:   '#ff4000',
-    waterCol: '#007bff',
-    ripples:  true,      // click to drop a ripple
+    wind:     0.00,      // 0..1   wave height + choppiness
+    angle:    52,        // 20..89 camera elevation. 89 is effectively straight down.
+    sun:      1.00,      // 0..1   sun height in the sky
+    speed:    0.80,      // 0.25..2.6  ripple wavefront speed
+    contrast: 2.50,      // tone curve applied before the glyph ramp
+    sunCol:   '#ffffff',                                     // rgb(255, 255, 255)
+    waterCol: '#0062ff',                                     // rgb(0, 98, 255)
+
+    // --- ascii pass ---
+    // Squares only. Order doesn't matter: the atlas measures each glyph's ink
+    // and sorts the ramp dark -> bright itself. Any glyph the font can't render
+    // is dropped rather than drawn as a tofu box.
+    ramp:     '\u00B7\u25AB\u25AA\u25A1\u25A3\u25A0',   //  · ▫ ▪ □ ▣ ■
+    cellW:    10,        // character cell, CSS px
+    cellH:    16,
+    weight:   0,         // extra stroke on each glyph — fills don't need it
+    lift:     1.0,       // glyph alpha gain
+    levels:   4,         // colour posterisation steps per channel
+    glowBg:   0.06,      // scene colour bleeding into the cell background
+
+    // --- cursor trail ---
+    trailMs:  45,        // min time between emitted ripples
+    trailPx:  7,         // min cursor travel between emitted ripples
   };
 
   const canvas = document.getElementById('gl');
@@ -108,27 +133,32 @@ const { siteName, text } = Astro.props;
     return;
   }
 
+  const MAX = 32;   // live ripples — a cursor trail needs many more than a click did
+
   const VERT = `
     attribute vec2 aPos;
     void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
   `;
 
-  const FRAG = `
+  // =========================================================================
+  // PASS 1 — the water, rendered at one pixel per character cell.
+  // =========================================================================
+  const FRAG_SCENE = `
     precision highp float;
 
-    uniform vec2  uRes;
+    uniform vec2  uRes;       // low-res buffer = the character grid
+    uniform float uAspect;    // true screen aspect
     uniform float uTime;
     uniform float uWind;
     uniform float uSun;
     uniform vec3  uSunTint;
-    uniform vec3  uWaterCol;  // linear-light colour; drives body + absorption
-    uniform float uAngle;     // camera elevation, degrees above the water
+    uniform vec3  uWaterCol;
+    uniform float uAngle;
     uniform float uRipSpeed;
-    uniform vec4  uRip[8];    // xy = world xz, z = birth time, w = strength
+    uniform vec4  uRip[${MAX}];
 
-    const float ORBIT = 6.39;   // camera distance from the origin, held constant
+    const float ORBIT = 6.39;
 
-    // ---- value noise ------------------------------------------------------
     float hash(vec2 p) {
       p = fract(p * vec2(443.897, 441.423));
       p += dot(p, p.yx + 19.19);
@@ -158,8 +188,6 @@ const { siteName, text } = Astro.props;
       return v;
     }
 
-    // ---- surface height ---------------------------------------------------
-    // detail fades with distance so far-off waves don't alias into noise.
     float swell(vec2 p, float detail) {
       float h = 0.0;
       float amp = 0.5;
@@ -177,14 +205,11 @@ const { siteName, text } = Astro.props;
         freq *= 2.06;
       }
 
-      // sharpen crests, round out troughs -- the shape wind actually makes
       float chop = 0.30 + 0.45 * uWind;
       h = sign(h) * pow(abs(h), 1.0 - 0.55 * chop);
       return h * (0.10 + 0.30 * uWind);
     }
 
-    // Capillary chop: tiny fast wavelets that only really touch the normal.
-    // Without these the surface reads as a stretched rubber sheet.
     float capillary(vec2 p, float detail) {
       float a = noise(p *  9.0 + vec2(-uTime * 0.55, uTime * 0.40)) - 0.5;
       float b = noise(p * 19.0 + vec2( uTime * 0.80, uTime * 0.25)) - 0.5;
@@ -193,16 +218,16 @@ const { siteName, text } = Astro.props;
 
     float ripples(vec2 p) {
       float h = 0.0;
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < ${MAX}; i++) {
         vec4 r = uRip[i];
         if (r.w <= 0.0) continue;
         float age = uTime - r.z;
-        if (age < 0.0 || age > 7.0) continue;
+        if (age < 0.0 || age > 4.0) continue;
         float d = length(p - r.xy);
-        float front = d - age * uRipSpeed;                  // expanding wavefront
-        float env = exp(-age * 1.15) * exp(-front * front * 30.0) * exp(-d * 0.22);
+        float front = d - age * uRipSpeed;
+        float env = exp(-age * 1.55) * exp(-front * front * 34.0) * exp(-d * 0.30);
         float s = sin(front * 26.0);
-        s = sign(s) * pow(abs(s), 1.45);                    // peaked crest, flat trough
+        s = sign(s) * pow(abs(s), 1.45);
         h += (s + 0.30 * sin(front * 52.0 + 1.0)) * env * r.w;
       }
       return h;
@@ -219,26 +244,23 @@ const { siteName, text } = Astro.props;
       return normalize(vec3(h - hx, eps, h - hz));
     }
 
-    // ---- sky --------------------------------------------------------------
     vec3 sky(vec3 rd, vec3 sunDir) {
       float y = max(rd.y, 0.0);
       vec3 zenith  = vec3(0.05, 0.26, 0.62);
       vec3 horizon = vec3(0.68, 0.80, 0.88);
-      horizon = mix(horizon, uSunTint, 0.28);   // sun colour bleeds into the haze
+      horizon = mix(horizon, uSunTint, 0.28);
       vec3 col = mix(horizon, zenith, pow(y, 0.45));
 
-      // thin cloud band near the horizon
       float band = exp(-abs(rd.y - 0.16) * 14.0);
       float c = fbm(rd.xz / max(rd.y + 0.10, 0.10) * 0.9 + uTime * 0.012);
       col = mix(col, mix(vec3(0.93, 0.94, 0.95), uSunTint, 0.35), smoothstep(0.45, 0.85, c) * band * 0.55);
 
       float sd = max(dot(rd, sunDir), 0.0);
-      col += uSunTint * pow(sd, 900.0) * 14.0;   // disc
-      col += uSunTint * pow(sd, 7.0) * 0.30;     // glow
+      col += uSunTint * pow(sd, 900.0) * 14.0;
+      col += uSunTint * pow(sd, 7.0) * 0.30;
       return col;
     }
 
-    // ---- sea floor --------------------------------------------------------
     float caustic(vec2 p) {
       float a = noise(p * 2.6 + vec2( uTime * 0.11, -uTime * 0.08));
       float b = noise(p * 4.3 - vec2( uTime * 0.09,  uTime * 0.12));
@@ -254,10 +276,9 @@ const { siteName, text } = Astro.props;
     }
 
     void main() {
-      vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
+      vec2 uv = gl_FragCoord.xy / uRes - 0.5;
+      uv.x *= uAspect;
 
-      // camera: swings up an arc of fixed radius. 20 deg is the grazing view,
-      // 89 deg is effectively straight down.
       float ang = radians(clamp(uAngle, 5.0, 89.0));
       vec3 ro = vec3(0.0, ORBIT * sin(ang), ORBIT * cos(ang));
       vec3 ww = normalize(-ro);
@@ -282,20 +303,18 @@ const { siteName, text } = Astro.props;
         vec3 N = normalAt(p, eps, detail);
         vec3 V = -rd;
 
-        // what shows through the surface
         vec3 refr = refract(rd, N, 1.0 / 1.333);
         float depth = 1.35;
         vec2 fp = p + refr.xz * (depth / max(-refr.y, 0.25));
         vec3 below = floorColor(fp);
 
-        // Absorption is derived from the water colour: whatever channels are
-        // darkened get absorbed fastest, so the depths converge on that hue.
+        // Absorption follows the water colour: darkened channels absorb fastest,
+        // so the depths converge on whatever hue you pick.
         vec3 tint = max(uWaterCol, vec3(0.015));
         vec3 absorbK = -log(tint) * 0.42;
         below *= exp(-absorbK * depth * 1.9);
         below = mix(below, tint * 0.70, 0.48);
 
-        // reflection
         vec3 R = reflect(rd, N);
         R.y = abs(R.y);
         vec3 above = sky(R, sunDir);
@@ -303,31 +322,79 @@ const { siteName, text } = Astro.props;
         float fres = 0.02 + 0.98 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
         col = mix(below, above, fres);
 
-        // sun glitter
         vec3 H = normalize(sunDir + V);
         float spec = pow(max(dot(N, H), 0.0), 600.0);
         col += uSunTint * spec * 4.0;
 
-        // foam where crests are steep
         float h = height(p, detail);
         float steep = 1.0 - N.y;
         float foam = smoothstep(0.35, 0.85, h * 6.0 * (0.4 + uWind)) * smoothstep(0.02, 0.12, steep);
         foam *= smoothstep(0.35, 0.75, fbm(p * 7.0 + uTime * 0.25));
         col = mix(col, vec3(0.92, 0.95, 0.96), clamp(foam, 0.0, 0.75) * detail);
 
-        // haze into the horizon
         float haze = 1.0 - exp(-t * 0.055);
         col = mix(col, sky(vec3(rd.x, 0.008, rd.z), sunDir), haze * 0.92);
       }
 
-      // tonemap + a touch of contrast
       col = col / (1.0 + col);
       col = pow(col, vec3(0.4545));
-      col = mix(vec3(dot(col, vec3(0.299, 0.587, 0.114))), col, 1.32);
 
-      // vignette
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    }
+  `;
+
+  // =========================================================================
+  // PASS 2 — one texel per cell -> the square whose coverage matches that
+  // cell's brightness. With only six squares the ramp is coarse, so the tone
+  // curve does the heavy lifting: it decides which cells cross each step.
+  // =========================================================================
+  const FRAG_ASCII = `
+    precision highp float;
+
+    uniform sampler2D uScene;
+    uniform sampler2D uGlyphs;
+    uniform vec2  uCell;
+    uniform vec2  uGrid;
+    uniform vec2  uRes;
+    uniform float uCount;
+    uniform float uLevels;
+    uniform float uBg;
+    uniform float uContrast;
+    uniform float uLift;
+
+    vec3 punch(vec3 c, float k) {
+      return clamp((c - 0.5) * k + 0.5, 0.0, 1.0);
+    }
+
+    void main() {
+      vec2 cell   = floor(gl_FragCoord.xy / uCell);
+      vec2 inCell = (gl_FragCoord.xy - cell * uCell) / uCell;
+
+      vec3 raw = texture2D(uScene, (cell + 0.5) / uGrid).rgb;
+      vec3 c = punch(raw, uContrast);
+
+      float lum = dot(c, vec3(0.299, 0.587, 0.114));
+      lum = clamp((lum - 0.46) * uContrast + 0.46, 0.0, 0.9999);
+
+      float idx = floor(lum * uCount);
+
+      // inset a hair so bilinear filtering can't drag in the neighbouring glyph
+      float gx = (idx + mix(0.02, 0.98, inCell.x)) / uCount;
+      float g  = clamp(texture2D(uGlyphs, vec2(gx, 1.0 - inCell.y)).a * uLift, 0.0, 1.0);
+
+      float mx = max(c.r, max(c.g, c.b));
+      vec3 tint = mix(c, c / max(mx, 0.001), 0.86);
+      tint = floor(tint * uLevels + 0.5) / uLevels;
+      tint *= 0.45 + 0.55 * lum;          // keep the ramp readable as brightness
+
+      vec3 bg = vec3(0.008, 0.024, 0.032) + c * uBg;
+      vec3 col = mix(bg, tint, g);
+
+      // hairline gutter under each row, so the grid stays legible
+      col *= 0.90 + 0.10 * step(0.09, inCell.y);
+
       vec2 q = gl_FragCoord.xy / uRes;
-      col *= 0.80 + 0.20 * pow(16.0 * q.x * q.y * (1.0 - q.x) * (1.0 - q.y), 0.18);
+      col *= 0.78 + 0.22 * pow(16.0 * q.x * q.y * (1.0 - q.x) * (1.0 - q.y), 0.18);
 
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
@@ -343,51 +410,170 @@ const { siteName, text } = Astro.props;
     return s;
   }
 
-  let prog;
-  try {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      throw new Error(gl.getProgramInfoLog(prog) || 'program link failed');
+  function link(fragSrc) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, VERT));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fragSrc));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(p) || 'program link failed');
     }
+    return p;
+  }
+
+  let scenePM, asciiPM;
+  try {
+    scenePM = link(FRAG_SCENE);
+    asciiPM = link(FRAG_ASCII);
   } catch (e) {
     fail('Shader problem:\n\n' + e.message);
     return;
   }
 
-  gl.useProgram(prog);
-
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const aPos = gl.getAttribLocation(prog, 'aPos');
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
-  const uRes      = gl.getUniformLocation(prog, 'uRes');
-  const uTime     = gl.getUniformLocation(prog, 'uTime');
-  const uWind     = gl.getUniformLocation(prog, 'uWind');
-  const uSun      = gl.getUniformLocation(prog, 'uSun');
-  const uSunTint  = gl.getUniformLocation(prog, 'uSunTint');
-  const uWaterCol = gl.getUniformLocation(prog, 'uWaterCol');
-  const uAngle    = gl.getUniformLocation(prog, 'uAngle');
-  const uRipSpeed = gl.getUniformLocation(prog, 'uRipSpeed');
-  const uRip      = gl.getUniformLocation(prog, 'uRip[0]');
+  const S = {
+    aPos:     gl.getAttribLocation(scenePM, 'aPos'),
+    res:      gl.getUniformLocation(scenePM, 'uRes'),
+    aspect:   gl.getUniformLocation(scenePM, 'uAspect'),
+    time:     gl.getUniformLocation(scenePM, 'uTime'),
+    wind:     gl.getUniformLocation(scenePM, 'uWind'),
+    sun:      gl.getUniformLocation(scenePM, 'uSun'),
+    sunTint:  gl.getUniformLocation(scenePM, 'uSunTint'),
+    waterCol: gl.getUniformLocation(scenePM, 'uWaterCol'),
+    angle:    gl.getUniformLocation(scenePM, 'uAngle'),
+    ripSpeed: gl.getUniformLocation(scenePM, 'uRipSpeed'),
+    rip:      gl.getUniformLocation(scenePM, 'uRip[0]'),
+  };
+
+  const A = {
+    aPos:     gl.getAttribLocation(asciiPM, 'aPos'),
+    scene:    gl.getUniformLocation(asciiPM, 'uScene'),
+    glyphs:   gl.getUniformLocation(asciiPM, 'uGlyphs'),
+    cell:     gl.getUniformLocation(asciiPM, 'uCell'),
+    grid:     gl.getUniformLocation(asciiPM, 'uGrid'),
+    res:      gl.getUniformLocation(asciiPM, 'uRes'),
+    count:    gl.getUniformLocation(asciiPM, 'uCount'),
+    levels:   gl.getUniformLocation(asciiPM, 'uLevels'),
+    bg:       gl.getUniformLocation(asciiPM, 'uBg'),
+    contrast: gl.getUniformLocation(asciiPM, 'uContrast'),
+    lift:     gl.getUniformLocation(asciiPM, 'uLift'),
+  };
 
   const ORBIT = 6.39;   // must match the shader
 
-  // ---- colours, resolved once ---------------------------------------------
+  // ---- glyph atlas ---------------------------------------------------------
+  // Three jobs beyond drawing:
+  //   1. tofu check — these are Unicode maths symbols, and a font that lacks one
+  //      draws a filled box. A box has *more* ink than every real glyph here, so
+  //      it would silently become the "brightest" step. Anything that renders
+  //      identically to a guaranteed-missing codepoint gets dropped.
+  //   2. stroke weight — tildes are hairlines; at this cell size they'd vanish,
+  //      so each glyph is stroked as well as filled to thicken it.
+  //   3. sort by ink, so the ramp runs dark -> bright whatever the font does.
+  function buildGlyphAtlas(chars, cw, ch, weight) {
+    const SS = 3;
+    const W = cw * SS, H = ch * SS;
+    // slight overfill, clipped to the cell: a filled block should reach the edges
+    const FONT = `600 ${Math.round(H * 1.06)}px ui-monospace, "SFMono-Regular", "Menlo", "Consolas", "DejaVu Sans Mono", "Segoe UI Symbol", "Noto Sans Symbols 2", sans-serif`;
+
+    const setup = (ctx) => {
+      ctx.font = FONT;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = '#fff';
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1, H * weight);
+    };
+
+    const stamp = (ctx, glyph, x0) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x0, 0, W, H);
+      ctx.clip();
+      const cx = x0 + W * 0.5, cy = H * 0.5;
+      if (weight > 0) ctx.strokeText(glyph, cx, cy);   // only hairline glyphs need thickening
+      ctx.fillText(glyph, cx, cy);
+      ctx.restore();
+    };
+
+    const m = document.createElement('canvas');
+    m.width = W; m.height = H;
+    const mc = m.getContext('2d', { willReadFrequently: true });
+    setup(mc);
+
+    const render = (glyph) => {
+      mc.clearRect(0, 0, W, H);
+      stamp(mc, glyph, 0);
+      const d = mc.getImageData(0, 0, W, H).data;
+      let ink = 0;
+      const sig = [];
+      for (let i = 3; i < d.length; i += 4) {
+        ink += d[i];
+        if ((i % 97) === 3) sig.push(d[i]);   // cheap fingerprint
+      }
+      return { ink, sig: sig.join(',') };
+    };
+
+    const tofu = render('\uFFFE');   // a permanently unassigned codepoint
+
+    const kept = [...chars]
+      .map((glyph) => ({ glyph, ...render(glyph) }))
+      .filter((x) => x.ink > 0 && x.sig !== tofu.sig)
+      .sort((a, b) => a.ink - b.ink);
+
+    // if the font somehow has none of them, fall back to something universal
+    const sorted = kept.length >= 2 ? kept.map((x) => x.glyph) : [...'.-=+*#'];
+
+    const c = document.createElement('canvas');
+    c.width = sorted.length * W;
+    c.height = H;
+    const g = c.getContext('2d');
+    setup(g);
+    sorted.forEach((glyph, i) => stamp(g, glyph, i * W));
+
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return { tex, count: sorted.length, glyphs: sorted.join(' ') };
+  }
+
+  const atlas = buildGlyphAtlas(CONFIG.ramp, CONFIG.cellW, CONFIG.cellH, CONFIG.weight);
+
+  // ---- the low-res target the water renders into --------------------------
+  const sceneTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  const fbo = gl.createFramebuffer();
+
+  let cols = 0, rows = 0, cellW = 0, cellH = 0, aspect = 1;
+
+  // ---- colours -------------------------------------------------------------
   const hexToRgb = (hex) => {
     const n = parseInt(hex.slice(1), 16);
     return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
   };
-  const SUN_TINT  = hexToRgb(CONFIG.sunCol);
-  const WATER_COL = hexToRgb(CONFIG.waterCol).map((v) => Math.pow(v, 2.2));  // sRGB -> linear
+
+  let SUN_TINT, WATER_COL;
+  function refreshColours() {
+    SUN_TINT  = hexToRgb(CONFIG.sunCol);
+    WATER_COL = hexToRgb(CONFIG.waterCol).map((v) => Math.pow(v, 2.2));  // sRGB -> linear
+  }
+  refreshColours();
 
   // ---- ripple pool --------------------------------------------------------
-  const MAX = 8;
   const rip = new Float32Array(MAX * 4);
   let ripSlot = 0;
   let clock = 0;
@@ -401,7 +587,8 @@ const { siteName, text } = Astro.props;
     ripSlot = (ripSlot + 1) % MAX;
   }
 
-  // Mirror of the shader's camera, so a click lands where you clicked.
+  // Mirror of the shader's camera, so a ripple lands under the cursor at any
+  // elevation, including looking straight down.
   function screenToWater(px, py) {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     const x = (px - 0.5 * w) / h;
@@ -411,7 +598,6 @@ const { siteName, text } = Astro.props;
     const ro = [0, ORBIT * Math.sin(a), ORBIT * Math.cos(a)];
 
     const ww = [0, -Math.sin(a), -Math.cos(a)];
-    // cross(ww, up) with up = (0,1,0) reduces to (-ww.z, 0, ww.x)
     const cx = [-ww[2], 0, ww[0]];
     const cl = Math.hypot(cx[0], cx[1], cx[2]);
     const uu = [cx[0] / cl, cx[1] / cl, cx[2] / cl];
@@ -429,30 +615,73 @@ const { siteName, text } = Astro.props;
     const n = Math.hypot(rd[0], rd[1], rd[2]);
     rd = [rd[0] / n, rd[1] / n, rd[2] / n];
 
-    if (rd[1] > -0.01) return null;          // aimed at the sky
+    if (rd[1] > -0.01) return null;
     const t = -ro[1] / rd[1];
-    if (t > 60) return null;                 // too far out to matter
+    if (t > 60) return null;
     return [ro[0] + rd[0] * t, ro[2] + rd[2] * t];
   }
 
-  if (CONFIG.ripples) {
-    canvas.addEventListener('pointerdown', (e) => {
-      const r = canvas.getBoundingClientRect();
-      const hit = screenToWater(e.clientX - r.left, e.clientY - r.top);
-      if (hit) addRipple(hit[0], hit[1], 0.030);
-    });
-  }
+  // ---- cursor trail -------------------------------------------------------
+  // Gated on time *and* distance from the last emitted point: a still cursor
+  // leaves nothing, a slow drag leaves a continuous wake, a fast flick drops
+  // fewer but stronger ripples instead of a solid smear.
+  let lastT = 0, lastX = null, lastY = null;
+
+  canvas.addEventListener('pointermove', (e) => {
+    const r = canvas.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    const now = performance.now();
+
+    if (lastX === null) { lastX = x; lastY = y; lastT = now; return; }
+
+    const dt = now - lastT;
+    const d  = Math.hypot(x - lastX, y - lastY);
+    if (dt < CONFIG.trailMs || d < CONFIG.trailPx) return;
+
+    const hit = screenToWater(x, y);
+    if (hit) {
+      const v = d / dt;                                     // px per ms
+      addRipple(hit[0], hit[1], 0.007 + Math.min(v * 0.010, 0.013));
+    }
+    lastX = x; lastY = y; lastT = now;
+  });
+
+  canvas.addEventListener('pointerleave', () => { lastX = null; });
+
+  // a deliberate click still drops one proper stone
+  canvas.addEventListener('pointerdown', (e) => {
+    const r = canvas.getBoundingClientRect();
+    const hit = screenToWater(e.clientX - r.left, e.clientY - r.top);
+    if (hit) addRipple(hit[0], hit[1], 0.030);
+  });
 
   // ---- sizing -------------------------------------------------------------
-  // Render at up to 1.5x; the shader is per-pixel and heavy.
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.round(canvas.clientWidth * dpr);
     const h = Math.round(canvas.clientHeight * dpr);
+    if (w === 0 || h === 0) return;
+
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
       canvas.height = h;
-      gl.viewport(0, 0, w, h);
+    }
+    aspect = w / h;
+
+    cellW = Math.max(2, CONFIG.cellW * dpr);
+    cellH = Math.max(2, CONFIG.cellH * dpr);
+
+    const nc = Math.max(1, Math.ceil(w / cellW));
+    const nr = Math.max(1, Math.ceil(h / cellH));
+    if (nc !== cols || nr !== rows) {
+      cols = nc;
+      rows = nr;
+      gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cols, rows, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTex, 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
   }
   window.addEventListener('resize', resize);
@@ -469,6 +698,12 @@ const { siteName, text } = Astro.props;
     if (running) { last = performance.now(); requestAnimationFrame(frame); }
   });
 
+  function bindQuad(loc) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  }
+
   function frame(now) {
     if (!running) return;
     const dt = Math.min((now - last) / 1000, 0.05);
@@ -476,15 +711,43 @@ const { siteName, text } = Astro.props;
     clock += dt * rate;
 
     resize();
-    gl.uniform2f(uRes, canvas.width, canvas.height);
-    gl.uniform1f(uTime, clock);
-    gl.uniform1f(uWind, CONFIG.wind);
-    gl.uniform1f(uSun, CONFIG.sun);
-    gl.uniform1f(uAngle, CONFIG.angle);
-    gl.uniform1f(uRipSpeed, CONFIG.speed);
-    gl.uniform3fv(uSunTint, SUN_TINT);
-    gl.uniform3fv(uWaterCol, WATER_COL);
-    gl.uniform4fv(uRip, rip);
+
+    // pass 1 — water into the cell grid
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, cols, rows);
+    gl.useProgram(scenePM);
+    bindQuad(S.aPos);
+    gl.uniform2f(S.res, cols, rows);
+    gl.uniform1f(S.aspect, aspect);
+    gl.uniform1f(S.time, clock);
+    gl.uniform1f(S.wind, CONFIG.wind);
+    gl.uniform1f(S.sun, CONFIG.sun);
+    gl.uniform1f(S.angle, CONFIG.angle);
+    gl.uniform1f(S.ripSpeed, CONFIG.speed);
+    gl.uniform3fv(S.sunTint, SUN_TINT);
+    gl.uniform3fv(S.waterCol, WATER_COL);
+    gl.uniform4fv(S.rip, rip);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // pass 2 — wave glyphs
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(asciiPM);
+    bindQuad(A.aPos);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.uniform1i(A.scene, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, atlas.tex);
+    gl.uniform1i(A.glyphs, 1);
+    gl.uniform2f(A.cell, cellW, cellH);
+    gl.uniform2f(A.grid, cols, rows);
+    gl.uniform2f(A.res, canvas.width, canvas.height);
+    gl.uniform1f(A.count, atlas.count);
+    gl.uniform1f(A.levels, CONFIG.levels);
+    gl.uniform1f(A.bg, CONFIG.glowBg);
+    gl.uniform1f(A.contrast, CONFIG.contrast);
+    gl.uniform1f(A.lift, CONFIG.lift);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     requestAnimationFrame(frame);
