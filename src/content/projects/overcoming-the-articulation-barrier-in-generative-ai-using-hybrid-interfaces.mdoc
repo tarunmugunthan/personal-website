@@ -20,13 +20,13 @@ The majority of tools that are used for AI image generation have **prompt-based 
 
 When an interface relies solely on text prompts as user inputs, it is **challenging for inexperienced or [low-articulation users](https://jakobnielsenphd.substack.com/p/prompt-driven-ai-ux-hurts-usability)**&nbsp; to achieve their goals. Users may often write prompts that they feel represent their intent but receive images that miss the mark entirely. Additionally, it is cognitively taxing for users to articulate every action they want to perform as prose.&nbsp;
 
-### **Method**
+### Method
 
 I studied how users create images through Midjourney, one of the most popular image-generation tools. Studying Midjourney was uniquely interesting because it offers its services through a [Discord server](https://docs.midjourney.com/docs/midjourney-discord), where any member can see what prompts other users are writing and what images they’re creating. This data captures real-world usage and has high ecological validity. I analyzed over 100 prompts and the resultant images, and traced the iterations users went through to generate their final images.&nbsp;
 
 I also looked at eight different prompt-writing guides for AI image-generation tools compiled by expert users. These guides describe how to construct prompts to get the best images. This helped me understand the gap between how beginners and experts approached writing prompts.&nbsp;
 
-## **The Articulation Barrier in Image Generation**
+## The Articulation Barrier in Image Generation
 
 In **“**[Prompt-Driven AI UX Hurts Usability](https://jakobnielsenphd.substack.com/p/prompt-driven-ai-ux-hurts-usability)**”**,&nbsp; Jakob Nielsen discusses why it is challenging to articulate your needs in writing. This challenge creates a barrier between the user and the computer, especially when writing prompts.&nbsp;
 
@@ -53,7 +53,7 @@ Prompt-writing guides emphasize the importance of being specific with language. 
 
 Articulating the image a user wants to create with enough descriptors is cognitively taxing. **Users must pay special attention to writing in all elements of the image they hold in their minds** (many of which they may not even know the terms for)**.** This effort compounds quickly when users have to repeat the articulation process many times. Rarely did I observe a user in Midjourney stop after generating one image. Most users attempted to generate an image multiple times by iterating on the prompt. They changed, added, or removed words, or rephrased the entire prompt. They repeated the process until they reached images they were happy with (or gave up).
 
-## **Solution Exploration: Hybrid Interfaces**
+## Solution Exploration: Hybrid Interfaces
 
 &nbsp;The articulation barrier is a usability challenge for AI image-generation tools.&nbsp; The problem statements, or [how-might-we statements](https://www.nngroup.com/articles/problem-statements/), in this scenario, are:
 
@@ -64,6 +64,6 @@ Prompting gives the user flexibility to create images that they envision in thei
 
 At the same time, having solutions where users don’t need to know advanced terms from memory or find it easier to articulate more descriptively, led me to explore graphical user interfaces (GUI) which present options for users to click on and select from.&nbsp;
 
-### **Presenting Visual Properties as Options to Select From**
+### Presenting Visual Properties as Options to Select From
 
 Since advanced vocabulary, complex terms, and cultural references are outside many users’ knowledge, I explored the concept of presenting different visual properties as options to select from. I considered showing thumbnail images with the visual effect each term would have on the generated image. Users could choose and apply that effect without needing to know the name of the term and make their decision based on the visual clue provided in the thumbnail. For instance, to create an aesthetic that has pain splashes and bright colors, users can visually recognize the Jackson Pollock thumbnail as the appropriate effect and select it, rather than needing to know about Jackson Pollock’s style and use it as a verbal reference.&nbsp;
