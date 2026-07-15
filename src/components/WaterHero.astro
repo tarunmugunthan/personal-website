@@ -12,7 +12,14 @@ const { siteName, text } = Astro.props;
   <h1 class="sr-only">{siteName}</h1>
   <div class="hero-text">
     <div class="hero-panel">
+      <img class="monogram" src="/monogram.jpeg" alt="" width="112" height="112" />
       <p>{text}</p>
+    </div>
+    <div class="scroll-hint" aria-hidden="true">
+      <span>Scroll</span>
+      <svg class="chevron" width="16" height="9" viewBox="0 0 16 9" fill="none">
+        <path d="M1 1l7 7 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
     </div>
   </div>
 </header>
@@ -55,26 +62,81 @@ const { siteName, text } = Astro.props;
     position: absolute;
     inset: 0;
     z-index: 2;
+    display: grid;
+    place-items: center;
     pointer-events: none;
+    padding: 24px;
   }
   .hero-panel {
-    /* the black rectangle is carved out of the simulation itself; the
-       panel tracks the gap's centre via --hole-x set from the script */
-    position: absolute;
-    left: var(--hole-x, 50%);
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: max-content;
-    max-width: min(32rem, 86vw);
+    /* the black square is carved out of the simulation itself;
+       this only sizes the content to sit inside that gap */
+    max-width: min(24rem, 78vw);
     padding: 0 1.5rem;
     text-align: center;
+  }
+  .monogram {
+    display: block;
+    width: 112px;
+    height: 112px;
+    margin: 0 auto 1.25rem;
   }
   .hero-panel p {
     margin: 0;
     font-family: 'Faculty Glyphic', serif;
-    font-size: clamp(1.3rem, 2.4vw, 1.75rem);
-    line-height: 1.5;
+    /* near-constant size: the gap barely changes across viewports,
+       so the text shouldn't shrink with the window either */
+    font-size: clamp(1.3rem, 1.9vw, 1.45rem);
+    line-height: 1.55;
     color: #f5f5f5;
+  }
+  .scroll-hint {
+    /* pinned near the inside bottom edge of the square gap — the
+       calc mirrors the square's size formula in the script */
+    position: absolute;
+    left: 50%;
+    top: calc(50% + min(240px, 31svh, 44vw) - 3.6rem);
+    transform: translateX(-50%);
+    text-align: center;
+    color: #9aa3ad;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .scroll-hint .chevron {
+    display: block;
+    margin: 0.4rem auto 0;
+    animation: chevron-bob 2.2s ease-in-out infinite;
+  }
+  @keyframes chevron-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-hint .chevron {
+      animation: none;
+    }
+  }
+  /* phones: the gap becomes a portrait rectangle (80vw wide), so the
+     content scales to fill it without crowding the scroll hint */
+  @media (max-width: 640px) {
+    .monogram {
+      width: 84px;
+      height: 84px;
+      margin-bottom: 1rem;
+    }
+    .hero-panel {
+      max-width: 70vw;
+      padding: 0 0.5rem;
+    }
+    .hero-panel p {
+      font-size: 1.15rem;
+      line-height: 1.5;
+    }
+    .scroll-hint {
+      font-size: 0.65rem;
+      /* matches the mobile gap height: min(480px, 58svh) tall */
+      top: calc(50% + min(240px, 29svh) - 3rem);
+    }
   }
   .sr-only {
     position: absolute;
@@ -119,7 +181,6 @@ const { siteName, text } = Astro.props;
 
   const canvas = document.getElementById('gl');
   const errBox = document.getElementById('err');
-  const hero = canvas.parentElement;   // .water-hero — carries --hole-x for the text
 
   function fail(msg) {
     errBox.textContent = msg;
@@ -278,7 +339,6 @@ const { siteName, text } = Astro.props;
 
     void main() {
       vec2 uv = gl_FragCoord.xy / uRes - 0.5;
-      uv.x = -uv.x;   // mirror the scene: sun glint moves left, dark water right
       uv.x *= uAspect;
 
       float ang = radians(clamp(uAngle, 5.0, 89.0));
@@ -364,9 +424,6 @@ const { siteName, text } = Astro.props;
     uniform float uContrast;
     uniform float uLift;
     uniform vec4  uHole;      // centered text gap, in cell coords: x0, y0, x1, y1
-    uniform sampler2D uFace;
-    uniform vec4  uFaceRect;  // portrait region, device px, bottom-origin
-    uniform float uFaceOn;
 
     vec3 punch(vec3 c, float k) {
       return clamp((c - 0.5) * k + 0.5, 0.0, 1.0);
@@ -390,26 +447,6 @@ const { siteName, text } = Astro.props;
       float lum = dot(c, vec3(0.299, 0.587, 0.114));
       lum = clamp((lum - 0.46) * uContrast + 0.46, 0.0, 0.9999);
 
-      // face overlay: the portrait's ink lifts the glyph ramp on the right.
-      // The lift is modulated by the live water luminance, so passing
-      // ripples visibly disturb the face and it settles back as they decay.
-      // Sampled unconditionally (uv clamped, effect masked arithmetically):
-      // mipmap LOD selection inside a non-uniform branch is undefined.
-      vec2 cpx = (cell + 0.5) * uCell;
-      vec2 fuv = clamp((cpx - uFaceRect.xy) / max(uFaceRect.zw - uFaceRect.xy, vec2(1.0)), 0.0, 1.0);
-      float ink = 1.0 - texture2D(uFace, fuv).r;       // black ink on white
-      // gentle curve: keeps the dither's gradient shading instead of
-      // crushing mid-tones to full ink
-      ink = smoothstep(0.08, 0.72, ink);
-      vec2 inR = step(uFaceRect.xy, cpx) * step(cpx, uFaceRect.zw);
-      // fade only at the left and top — the portrait is flush with the
-      // right and bottom edges of the hero
-      vec2 eD = vec2(cpx.x - uFaceRect.x, uFaceRect.w - cpx.y);
-      float fEdge = smoothstep(0.0, 40.0, min(eD.x, eD.y));
-      float fMask = ink * fEdge * inR.x * inR.y * uFaceOn;
-      float shimmer = 0.55 + 0.75 * lum;
-      lum = clamp(mix(lum, ink * shimmer, 0.95 * fMask), 0.0, 0.9999);
-
       float idx = floor(lum * uCount);
 
       // inset a hair so bilinear filtering can't drag in the neighbouring glyph
@@ -423,9 +460,6 @@ const { siteName, text } = Astro.props;
 
       vec3 bg = vec3(0.008, 0.024, 0.032) + c * uBg;
       vec3 col = mix(bg, tint, g);
-
-      // ink cells drift toward white so the portrait separates from the water
-      col = mix(col, vec3(0.93, 0.96, 1.0) * g, 0.85 * fMask);
 
       // hairline gutter under each row, so the grid stays legible
       col *= 0.90 + 0.10 * step(0.09, inCell.y);
@@ -498,9 +532,6 @@ const { siteName, text } = Astro.props;
     contrast: gl.getUniformLocation(asciiPM, 'uContrast'),
     lift:     gl.getUniformLocation(asciiPM, 'uLift'),
     hole:     gl.getUniformLocation(asciiPM, 'uHole'),
-    face:     gl.getUniformLocation(asciiPM, 'uFace'),
-    faceRect: gl.getUniformLocation(asciiPM, 'uFaceRect'),
-    faceOn:   gl.getUniformLocation(asciiPM, 'uFaceOn'),
   };
 
   const ORBIT = 6.39;   // must match the shader
@@ -589,49 +620,6 @@ const { siteName, text } = Astro.props;
 
   const atlas = buildGlyphAtlas(CONFIG.ramp, CONFIG.cellW, CONFIG.cellH, CONFIG.weight);
 
-  // ---- face overlay ---------------------------------------------------------
-  // Black-ink portrait sampled per cell on the right side of the hero.
-  // Starts as a 1x1 white pixel (ink = 0, no effect) until the image loads.
-  const faceTex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, faceTex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
-    new Uint8Array([255, 255, 255, 255]));
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-
-  let faceReady = false;
-  let faceAspect = 1;
-  let faceOn = false;
-  const faceRect = new Float32Array(4);
-
-  const faceImg = new Image();
-  faceImg.onload = () => {
-    faceAspect = faceImg.width / faceImg.height;
-    // normalise to power-of-two via canvas (stretch; the draw rect keeps
-    // the true aspect) so mipmaps always work — they keep the downsample
-    // to cells clean, whatever the source dimensions
-    const potCanvas = document.createElement('canvas');
-    potCanvas.width = 1024;
-    potCanvas.height = 1024;
-    potCanvas.getContext('2d').drawImage(faceImg, 0, 0, 1024, 1024);
-    gl.bindTexture(gl.TEXTURE_2D, faceTex);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, potCanvas);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    faceReady = true;
-    // draw one frame right away so the face shows even if the tab is
-    // backgrounded (rAF is paused there) when the image finishes loading
-    const was = running;
-    running = true;
-    frame(performance.now());
-    running = was;
-  };
-  faceImg.src = '/face7.jpeg';
-
   // ---- the low-res target the water renders into --------------------------
   const sceneTex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, sceneTex);
@@ -676,7 +664,7 @@ const { siteName, text } = Astro.props;
   // elevation, including looking straight down.
   function screenToWater(px, py) {
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    const x = (0.5 * w - px) / h;   // mirrored to match the flipped scene
+    const x = (px - 0.5 * w) / h;
     const y = (0.5 * h - py) / h;
 
     const a = Math.min(Math.max(CONFIG.angle, 5), 89) * Math.PI / 180;
@@ -757,29 +745,20 @@ const { siteName, text } = Astro.props;
     cellW = Math.max(2, CONFIG.cellW * dpr);
     cellH = Math.max(2, CONFIG.cellH * dpr);
 
-    // face overlay: full hero height, flush right; hidden when the
-    // remaining space can't fit the text gap (e.g. phones)
-    const fw = h * faceAspect;
-    faceOn = faceReady && w - fw >= 360 * dpr;
-    if (faceOn) {
-      faceRect[0] = w - fw;
-      faceRect[1] = 0;
-      faceRect[2] = w;
-      faceRect[3] = h;
+    // centered gap for the monogram + hero text, snapped to whole cells:
+    // a square on desktop, a portrait rectangle on phones (a square can't
+    // hold the wrapped text there without eating the side margins)
+    let gw, gh;
+    if (w < 640 * dpr) {
+      gw = w * 0.8;
+      gh = Math.min(480 * dpr, h * 0.58);
+    } else {
+      gw = gh = Math.min(480 * dpr, h * 0.62, w * 0.88);
     }
-
-    // rectangular gap for the hero text, snapped to whole cells —
-    // centered in the space left of the face (screen-centered without it)
-    const availLeft = faceOn ? w - fw : w;
-    const gw = Math.min(680 * dpr, availLeft * 0.9);
-    const gh = Math.min(240 * dpr, h * 0.32);
-    // biased right of centre, toward the face
-    const cx = faceOn ? availLeft * 0.7 : w / 2;
-    hole[0] = Math.round((cx - gw / 2) / cellW);
+    hole[0] = Math.round((w - gw) / 2 / cellW);
     hole[1] = Math.round((h - gh) / 2 / cellH);
-    hole[2] = Math.round((cx + gw / 2) / cellW) - 1;
+    hole[2] = Math.round((w + gw) / 2 / cellW) - 1;
     hole[3] = Math.round((h + gh) / 2 / cellH) - 1;
-    hero.style.setProperty('--hole-x', cx / dpr + 'px');
 
     const nc = Math.max(1, Math.ceil(w / cellW));
     const nr = Math.max(1, Math.ceil(h / cellH));
@@ -858,11 +837,6 @@ const { siteName, text } = Astro.props;
     gl.uniform1f(A.contrast, CONFIG.contrast);
     gl.uniform1f(A.lift, CONFIG.lift);
     gl.uniform4fv(A.hole, hole);
-    gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D, faceTex);
-    gl.uniform1i(A.face, 2);
-    gl.uniform4fv(A.faceRect, faceRect);
-    gl.uniform1f(A.faceOn, faceOn ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     requestAnimationFrame(frame);
