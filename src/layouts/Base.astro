@@ -257,11 +257,10 @@ const year = new Date().getFullYear();
     background: rgba(255, 255, 255, 0.045);
   }
 
-  /* Code blocks (Shiki adds its own background) size to their
-     content, capped at the reading column; long lines scroll */
+  /* Code blocks (Shiki adds its own background) match the reading
+     column; long lines scroll inside */
   .prose pre {
-    width: fit-content;
-    max-width: min(46rem, 100%);
+    width: min(46rem, 100%);
     margin: 2.5rem auto;
     padding: 1.25rem 1.5rem;
     border: 1px solid var(--rule);
