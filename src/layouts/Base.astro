@@ -156,14 +156,20 @@ const year = new Date().getFullYear();
   }
 
   a {
-    color: inherit;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 3px;
-    text-decoration-color: rgba(255, 255, 255, 0.35);
+    color: #427aec;
+    text-decoration: none;
   }
 
   a:hover {
-    text-decoration-color: rgba(255, 255, 255, 0.7);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  /* nav and footer links keep the site's neutral ink */
+  .site-nav a,
+  .site-footer a {
+    color: inherit;
   }
 
   ::selection {
@@ -371,7 +377,7 @@ const year = new Date().getFullYear();
     gap: 2rem;
   }
 
-  .footer-home {
+  .site-footer .footer-home {
     font-family: 'Faculty Glyphic', serif;
     font-size: 1.3rem;
     color: var(--bright);
@@ -379,7 +385,7 @@ const year = new Date().getFullYear();
     white-space: nowrap;
   }
 
-  .footer-home:hover {
+  .site-footer .footer-home:hover {
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
