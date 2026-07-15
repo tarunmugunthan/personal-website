@@ -1,18 +1,14 @@
 siteName: Tarun Mugunthan
-tagline: Design, code, and things in between
-heroText: >-
-  Hi, I'm Tarun. I design and build small, thoughtful things for the web —
-  this is where I keep them.
-metaDescription: >-
-  Personal website of Tarun Mugunthan — projects, experiments, and writing.
+tagline: Experiments and Reflections
+heroText: Hey! I am Tarun. Welcome to my site :)
+metaDescription: 'Personal website of Tarun Mugunthan — thoughts and experiments. '
 homeIntro: >-
-  Hi, I'm Tarun. I design and build things for the web. This is a small
-  collection of projects I've enjoyed making — some polished, some
-  experiments that got out of hand.
+  This just a bunch of stuff I tinker around with. It’s more of a scratchpad
+  than a portfolio. Most of it is about my experiments with AI, the rest is
+  about other stuff. 
 homeOutro: >-
-  Thanks for scrolling all the way down. This site is a living document —
-  new projects show up here as they're finished, and old ones occasionally
-  get revisited.
+  I hope you found some of it interesting. I will keep growing this collection
+  with more brain dumps. 
 email: tarun18nov@gmail.com
 socials:
   - label: GitHub
