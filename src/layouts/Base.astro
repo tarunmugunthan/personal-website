@@ -269,25 +269,67 @@ const year = new Date().getFullYear();
      inside <article>, which inverted the scale. Space above scales
      with heading size to break up the page. */
   .prose h1 {
-    font-size: 2rem;
+    font-size: 2.1rem;
     margin-block: 3.5rem 1rem;
   }
 
   .prose h2 {
-    font-size: 1.6rem;
+    font-size: 1.7rem;
     margin-block: 3rem 0.9rem;
   }
 
   .prose h3 {
-    font-size: 1.3rem;
+    font-size: 1.4rem;
     margin-block: 2.4rem 0.8rem;
   }
 
-  .prose h4,
-  .prose h5,
-  .prose h6 {
-    font-size: 1.1rem;
+  .prose h4 {
+    font-size: 1.2rem;
     margin-block: 2rem 0.7rem;
+  }
+
+  .prose h5 {
+    font-size: 1.1rem;
+    margin-block: 1.8rem 0.6rem;
+  }
+
+  .prose h6 {
+    font-size: 1rem;
+    margin-block: 1.8rem 0.6rem;
+  }
+
+  /* desktop: slightly larger reading size */
+  @media (min-width: 641px) {
+    .prose {
+      font-size: 1.125rem;
+    }
+  }
+
+  /* phones: rein the headings in — content h1 was rivalling the page title */
+  @media (max-width: 640px) {
+    .prose h1 {
+      font-size: 1.55rem;
+    }
+
+    .prose h2 {
+      font-size: 1.35rem;
+    }
+
+    .prose h3 {
+      font-size: 1.2rem;
+    }
+
+    .prose h4 {
+      font-size: 1.1rem;
+    }
+
+    .prose h5 {
+      font-size: 1.05rem;
+    }
+
+    .prose h6 {
+      font-size: 1rem;
+    }
   }
 
   .prose :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
