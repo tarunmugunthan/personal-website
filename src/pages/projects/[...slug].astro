@@ -22,7 +22,7 @@ const formatDate = (d: Date) =>
   d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 ---
 
-<Base title={project.data.title} description={project.data.summary}>
+<Base title={project.data.title} description={project.data.summary} stickyNav homeLink>
   <main class="wrap">
     <article>
       <header class="project-header">

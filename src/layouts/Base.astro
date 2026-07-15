@@ -5,9 +5,19 @@ interface Props {
   title?: string;
   description?: string;
   showNav?: boolean;
+  /** nav hides while scrolling down, slides back in when scrolling up */
+  stickyNav?: boolean;
+  /** footer shows a "Go to home" link opposite Contact */
+  homeLink?: boolean;
 }
 
-const { title, description = settings.metaDescription ?? '', showNav = true } = Astro.props;
+const {
+  title,
+  description = settings.metaDescription ?? '',
+  showNav = true,
+  stickyNav = false,
+  homeLink = false,
+} = Astro.props;
 const pageTitle = title ? `${title} — ${settings.siteName}` : settings.siteName;
 const year = new Date().getFullYear();
 ---
@@ -32,7 +42,7 @@ const year = new Date().getFullYear();
   <body>
     {
       showNav && (
-        <nav class="site-nav">
+        <nav class:list={['site-nav', { 'is-sticky': stickyNav }]}>
           <div class="wrap nav-row">
             <a href="/">{settings.siteName}</a>
             <a href="/about/">About</a>
@@ -44,31 +54,63 @@ const year = new Date().getFullYear();
     <slot />
 
     <footer class="site-footer">
+      <div class="wrap footer-row">
+        <div>
+          <h2>Contact</h2>
+          {
+            settings.email && (
+              <p class="footer-email">
+                <a href={`mailto:${settings.email}`}>{settings.email}</a>
+              </p>
+            )
+          }
+          {
+            settings.socials.length > 0 && (
+              <ul class="socials">
+                {settings.socials.map((s) => (
+                  <li>
+                    <a href={s.url ?? '#'} rel="me noopener">
+                      {s.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </div>
+        {
+          homeLink && (
+            <a class="footer-home" href="/">
+              ← Go to home
+            </a>
+          )
+        }
+      </div>
       <div class="wrap">
-        <h2>Contact</h2>
-        {
-          settings.email && (
-            <p class="footer-email">
-              <a href={`mailto:${settings.email}`}>{settings.email}</a>
-            </p>
-          )
-        }
-        {
-          settings.socials.length > 0 && (
-            <ul class="socials">
-              {settings.socials.map((s) => (
-                <li>
-                  <a href={s.url ?? '#'} rel="me noopener">
-                    {s.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )
-        }
         <p class="fineprint">© {year} {settings.siteName}</p>
       </div>
     </footer>
+
+    <script is:inline>
+      (() => {
+        const nav = document.querySelector('.site-nav.is-sticky');
+        if (!nav) return;
+        let lastY = window.scrollY;
+        window.addEventListener(
+          'scroll',
+          () => {
+            const y = window.scrollY;
+            if (y > lastY && y > nav.offsetHeight) {
+              nav.classList.add('nav-hidden');
+            } else if (y < lastY) {
+              nav.classList.remove('nav-hidden');
+            }
+            lastY = y;
+          },
+          { passive: true }
+        );
+      })();
+    </script>
   </body>
 </html>
 
@@ -158,6 +200,19 @@ const year = new Date().getFullYear();
   /* Nav (non-home pages) */
   .site-nav {
     border-bottom: 1px solid var(--rule);
+  }
+
+  /* Smart-sticky nav: hides while scrolling down, returns on scroll up */
+  .site-nav.is-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    transition: transform 0.25s ease;
+  }
+
+  .site-nav.is-sticky.nav-hidden {
+    transform: translateY(-100%);
   }
 
   .nav-row {
@@ -307,6 +362,27 @@ const year = new Date().getFullYear();
 
   .site-footer h2 {
     font-size: 1.3rem;
+  }
+
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+  }
+
+  .footer-home {
+    font-family: 'Faculty Glyphic', serif;
+    font-size: 1.3rem;
+    color: var(--bright);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .footer-home:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
   }
 
   .footer-email {
