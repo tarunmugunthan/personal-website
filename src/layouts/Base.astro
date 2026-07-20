@@ -1,5 +1,6 @@
 ---
 import settings from '../lib/settings';
+import Lightbox from '../components/Lightbox.astro';
 
 interface Props {
   title?: string;
@@ -91,6 +92,8 @@ const year = new Date().getFullYear();
         <p class="fineprint">© {year} {settings.siteName}</p>
       </div>
     </footer>
+
+    <Lightbox />
 
     <script is:inline>
       (() => {

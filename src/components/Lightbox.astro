@@ -1,0 +1,300 @@
+---
+// Site-wide image lightbox. Any <img data-zoomable> opens here.
+// Desktop: click to open, wheel to zoom toward the cursor, drag to pan,
+// double-click to toggle zoom. Mobile: two-finger pinch to zoom, drag to pan.
+// Close via the × button, a click on the empty backdrop, or Escape.
+---
+
+<div class="lb" hidden aria-hidden="true">
+  <button class="lb-close" type="button" aria-label="Close image">
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+    </svg>
+  </button>
+  <div class="lb-stage">
+    <img class="lb-img" alt="" draggable="false" />
+  </div>
+</div>
+
+<style is:global>
+  [data-zoomable] {
+    cursor: zoom-in;
+  }
+
+  .lb {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.94);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .lb.is-open {
+    opacity: 1;
+  }
+
+  .lb-stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  .lb-img {
+    max-width: 92vw;
+    max-height: 92vh;
+    width: auto;
+    height: auto;
+    transform-origin: center center;
+    will-change: transform;
+    cursor: grab;
+    -webkit-user-drag: none;
+  }
+
+  .lb.is-panning .lb-img {
+    cursor: grabbing;
+  }
+
+  .lb-close {
+    position: absolute;
+    top: max(0.75rem, env(safe-area-inset-top));
+    right: max(0.75rem, env(safe-area-inset-right));
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    color: #f5f5f5;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .lb-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lb {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  (() => {
+    const lb = document.querySelector<HTMLDivElement>('.lb');
+    const stage = lb?.querySelector<HTMLDivElement>('.lb-stage');
+    const img = lb?.querySelector<HTMLImageElement>('.lb-img');
+    const closeBtn = lb?.querySelector<HTMLButtonElement>('.lb-close');
+    if (!lb || !stage || !img || !closeBtn) return;
+
+    const MIN = 1;
+    const MAX = 6;
+    let scale = 1;
+    let tx = 0;
+    let ty = 0;
+    let lastFocus: HTMLElement | null = null;
+
+    const pointers = new Map<number, { x: number; y: number }>();
+    let pinchDist = 0;
+    let pinchMid = { x: 0, y: 0 };
+    let moved = false;
+    let downTarget: EventTarget | null = null;
+    let lastTapTime = 0;
+
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+    function apply() {
+      img!.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`;
+    }
+
+    // Keep the image from being dragged entirely out of the stage.
+    function clampPan() {
+      const s = stage!.getBoundingClientRect();
+      const iw = img!.offsetWidth * scale;
+      const ih = img!.offsetHeight * scale;
+      const maxX = Math.max(0, (iw - s.width) / 2);
+      const maxY = Math.max(0, (ih - s.height) / 2);
+      tx = clamp(tx, -maxX, maxX);
+      ty = clamp(ty, -maxY, maxY);
+    }
+
+    // Zoom to `next` scale while keeping the content point under (px,py) fixed.
+    function zoomAt(px: number, py: number, next: number) {
+      next = clamp(next, MIN, MAX);
+      const s = stage!.getBoundingClientRect();
+      const ox = s.left + s.width / 2;
+      const oy = s.top + s.height / 2;
+      const f = next / scale;
+      tx = (px - ox) * (1 - f) + f * tx;
+      ty = (py - oy) * (1 - f) + f * ty;
+      scale = next;
+      clampPan();
+      apply();
+    }
+
+    function reset() {
+      scale = 1;
+      tx = 0;
+      ty = 0;
+      apply();
+    }
+
+    function bestSrc(source: HTMLImageElement): string {
+      const set = source.getAttribute('srcset');
+      if (set) {
+        let best = '';
+        let bestW = -1;
+        for (const part of set.split(',')) {
+          const [url, w] = part.trim().split(/\s+/);
+          const width = w && w.endsWith('w') ? parseInt(w, 10) : 1;
+          if (width >= bestW) {
+            bestW = width;
+            best = url;
+          }
+        }
+        if (best) return best;
+      }
+      return source.currentSrc || source.src;
+    }
+
+    let closeTimer = 0;
+
+    function open(source: HTMLImageElement) {
+      window.clearTimeout(closeTimer);
+      lastFocus = document.activeElement as HTMLElement | null;
+      img!.src = bestSrc(source);
+      img!.alt = source.alt || '';
+      reset();
+      lb!.hidden = false;
+      lb!.setAttribute('aria-hidden', 'false');
+      document.documentElement.style.overflow = 'hidden';
+      // Force a reflow so the opacity transition runs from the hidden state,
+      // then reveal. Avoids depending on requestAnimationFrame (which pauses
+      // in background tabs).
+      void lb!.offsetWidth;
+      lb!.classList.add('is-open');
+      closeBtn!.focus();
+    }
+
+    function close() {
+      lb!.classList.remove('is-open');
+      lb!.setAttribute('aria-hidden', 'true');
+      document.documentElement.style.overflow = '';
+      // Hide after the fade. A fixed timer (not transitionend) guarantees the
+      // overlay is fully removed even when transitions are disabled, e.g.
+      // prefers-reduced-motion — otherwise an invisible overlay would keep
+      // capturing clicks.
+      closeTimer = window.setTimeout(() => {
+        lb!.hidden = true;
+        img!.src = '';
+      }, 220);
+      if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+    }
+
+    // Open from any zoomable image anywhere on the page.
+    document.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement)?.closest('[data-zoomable]');
+      if (t instanceof HTMLImageElement) {
+        e.preventDefault();
+        open(t);
+      }
+    });
+
+    closeBtn.addEventListener('click', close);
+
+    document.addEventListener('keydown', (e) => {
+      if (lb.hidden) return;
+      if (e.key === 'Escape') close();
+    });
+
+    stage.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        const factor = Math.exp(-e.deltaY * 0.0018);
+        zoomAt(e.clientX, e.clientY, scale * factor);
+      },
+      { passive: false }
+    );
+
+    stage.addEventListener('pointerdown', (e) => {
+      downTarget = e.target;
+      moved = false;
+      stage.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+        pinchMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      }
+    });
+
+    stage.addEventListener('pointermove', (e) => {
+      const prev = pointers.get(e.pointerId);
+      if (!prev) return;
+      const cur = { x: e.clientX, y: e.clientY };
+      pointers.set(e.pointerId, cur);
+
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        if (pinchDist > 0) zoomAt(mid.x, mid.y, scale * (dist / pinchDist));
+        pinchDist = dist;
+        pinchMid = mid;
+        moved = true;
+        return;
+      }
+
+      const dx = cur.x - prev.x;
+      const dy = cur.y - prev.y;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+      tx += dx;
+      ty += dy;
+      clampPan();
+      apply();
+      lb.classList.add('is-panning');
+    });
+
+    function endPointer(e: PointerEvent) {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinchDist = 0;
+      if (pointers.size === 0) lb!.classList.remove('is-panning');
+
+      if (!moved) {
+        // A clean tap/click on the empty backdrop closes the lightbox.
+        if (downTarget === stage || downTarget === lb) {
+          close();
+          return;
+        }
+        // Double-tap / double-click on the image toggles zoom.
+        if (downTarget === img) {
+          const now = Date.now();
+          if (now - lastTapTime < 300) {
+            if (scale > 1.01) reset();
+            else zoomAt(e.clientX, e.clientY, 2.5);
+            lastTapTime = 0;
+          } else {
+            lastTapTime = now;
+          }
+        }
+      }
+    }
+
+    stage.addEventListener('pointerup', endPointer);
+    stage.addEventListener('pointercancel', endPointer);
+  })();
+</script>
