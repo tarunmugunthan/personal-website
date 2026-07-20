@@ -16,9 +16,9 @@ links: []
 Something like the Claude app, entirely vibe-coded but over a week with painstakingly detailed prompting. It can search the web, use tools, code artifacts, expand it's own functionality and floats on my Mac screen in the corner.
 
 {% figure
-   src="/src/assets/images/projects/pill/july-20-screenshot-from-figma-1.png"
+   src="/src/assets/images/projects/pill/group-2-2.png"
    alt="Screenshot of how the app works"
-   caption="MY PROMPT : I want to do a greek potluck lunch at 2 this saturday. Can you create a google calendar invite and add Nimisha, Rishabh Jain and Advait? Also create a google sheet with all the dishes from this site and ingredients and attach it to the invite where people can sign-up which dishes they will bring. Add a description to the invite that's warm and informative. Check with me before sending."
+   caption="MY PROMPT : I want to do a greek potluck lunch at 2 this saturday. Can you create a google calendar invite and add N, R and A? Also create a google sheet with all the dishes from this site and ingredients and attach it to the invite where people can sign-up which dishes they will bring. Add a description to the invite that's warm and informative. Check with me before sending."
    size="large" /%}
 
 # The story so far
@@ -35,6 +35,12 @@ Again, I knew all this in theory but in my pursuit to gain confidence to build a
 
 I called it Pill. Because I wanted a floating pill to live on my computer that I could access anytime. The name was not creative but I wanted a more ambient experience than my current claude desktop app. I know there’s a Claude keyboard shortcut that gives you an input bar anywhere you want and you can start tasks there, but I wanted a bit more stuff accessible to me up-front.
 
+{% figure
+   src="/src/assets/images/projects/pill/group-3-6.png"
+   alt="Pill lives as a floating pill in the corner of my screen"
+   caption="Lives in the corner, persistently visible. "
+   size="medium" /%}
+
 The idea was to be able to start, follow-up and end basic tasks all without switching to a new window. It was your second screen within your first screen. I do think it’s a rough implementation, but when I used it for real, it felt good to not have to go back to a full screen app for the small stuff.&nbsp;
 
 ## Web Search
@@ -43,6 +49,12 @@ I first started with building basic chat, then added web search. One would think
 
 - Search depth: For any request, there are three paths the LLM can take: 1. No search, 2. One/few searches, 3 Many searches. Depending on whether the task was a simple output request (Summarize this text), fact lookup (What’s the capital of Turkey?) or deep research (Find me the financials of the top 10 public e-commerce companies), the path needed to change (reliably).&nbsp;
 - Visual results: I wanted images to be included in responses in ways that enriched information requests without needing to explicitly ask for them. If I ask for weekend treks near me, I wanna see pictures of what these beautiful treks look like. Claude (Sonnet 4.6) API’s responses were usually biased towards text out of the box even with web search.
+
+{% figure
+   src="/src/assets/images/projects/pill/july-20-screenshot-from-figma-2.png"
+   alt="Image showing visual search results with photos for a request to know more about a hike near Bangalore "
+   caption="Visual search results with photos for a request to know more about a hike near Bangalore "
+   size="medium" /%}
 
 I fixed both these issues with some prompt-based scaffolding that did a check on requests coming in and decided to categorize them for search depth and visual-ness.
 
@@ -70,6 +82,12 @@ I wanted the widest possible range of functionality so I added:
 One thing I learned from OpenClaw is that as you add more tools, the things you can do with your agent exponentially increase. But there is a ceiling to that. There is an argument to be made for an MVP to start with a specific set of tools with an audience in mind. 20% of them will support 80% of use cases in any given domain. I would have worked on that curated set (and not the random selection of tools above) if I were building an actual product but I wanted to explore something else – the ability of the agent to upgrade its capabilities based on needs.&nbsp;
 
 To support this, I created a Connector Assistant. It’s simply a separate chat interface where a user can go and request the assistant to find and research MCPs, CLI tools, Skills from the web, and then add it to the list of connectors. You can just tell it about a task and it will find any tools that you should add to do it.&nbsp;
+
+{% figure
+   src="/src/assets/images/projects/pill/july-20-screenshot-from-figma-3.png"
+   alt="The Connector Assistant found and set up the Google MCP for me"
+   caption="The Connector Assistant found and set up the Google MCP for me"
+   size="large" /%}
 
 As I started adding connectors, I realized that in the current ecosystem, they keep breaking. Sometimes, the auth for an MCP will expire or sometimes a request will timeout. Other times a server rejects the sign-in entirely, or a CLI tool is installed or updated but silently signed out. A connector that says "connected" one day can quietly stop working the next, so the app has to expect failure as the normal case.&nbsp;
 
