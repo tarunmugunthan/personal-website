@@ -39,8 +39,9 @@ const formatDate = (d: Date) =>
               <Image
                 src={p.data.coverImage}
                 alt={p.data.coverAlt}
-                widths={[400, 640, 960]}
+                widths={[400, 640, 960, 1280, 1600]}
                 sizes="(max-width: 640px) 100vw, 50vw"
+                quality={85}
                 loading="lazy"
                 decoding="async"
               />

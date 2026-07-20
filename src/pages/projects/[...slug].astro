@@ -36,8 +36,9 @@ const formatDate = (d: Date) =>
         class="cover"
         src={project.data.coverImage}
         alt={project.data.coverAlt}
-        widths={[800, 1200, 1800]}
+        widths={[800, 1200, 1800, 2000]}
         sizes="(max-width: 1040px) 100vw, 992px"
+        quality={85}
         loading="eager"
       />
 
