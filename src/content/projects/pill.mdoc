@@ -1,0 +1,84 @@
+---
+title: Trying to build my own general purpose AI app
+summary: I tried to make a Claude desktop clone and learnt some lessons along the way
+date: 2026-07-20
+status: draft
+featured: false
+order: 0
+role: Vibe-coding Experiment
+tags: []
+coverImage: '@assets/images/projects/pill/coverImage.png'
+coverAlt: Pill AI app
+links: []
+---
+# What I made
+
+Something like the Claude app, entirely vibe-coded but over a week with painstakingly detailed prompting. It can search the web, use tools, code artifacts, expand it's own functionality and floats on my Mac screen in the corner.
+
+{% figure
+   src="/src/assets/images/projects/pill/july-20-screenshot-from-figma.png"
+   alt="Screenshot of how the app works"
+   caption="MY PROMPT : I want to do a greek potluck lunch at 2 this saturday. Can you create a google calendar invite and add Nimisha, Rishabh Jain and Advait? Also create a google sheet with all the dishes from this site and ingredients and attach it to the invite where people can sign-up which dishes they will bring. Add a description to the invite that's warm and informative. Check with me before sending."
+   size="large" /%}
+
+# The story so far
+
+I tried making my own agentic chatbot. On the surface, I knew how one works. You send a prompt and it goes to the LLM. The LLM reads it, considers the tools it has available, plans an action, executes it and then waits for the response which it evaluates and does this whole process again until a satisfactory output is achieved. Sometimes there’s explicit planning stages and sometimes the tool calls are actually sub-agents who are instantiated with their own skills to a part of the job.
+
+OpenClaw took this a level further with memory (about itself, the user and the work it has done) through a system of .md files. Its paradigm-shifting proactive behavior came from a simple cron job that called the agent to do scheduled tasks or check on some stuff. You could ask it to wake up every time you got a Slack message, check for any action items and then do them for you to review by the time you got back from your workout.&nbsp;
+
+The thing that blew my mind the most about OpenClaw and similar agent harnesses is the ability to upgrade their own capabilities. You can ask your Claw to learn front end development, write its own skill file, find and connect to the right MCPs/CLIs and be much better the next time it comes back to the same task it failed the last time.&nbsp;
+
+# Back to what I was trying to build…
+
+Again, I knew all this in theory but in my pursuit to gain confidence to build a working AI product, I wanted to actually do it myself. So I started with Claude Code (Fable 5, while it lasts). I wanted to make it useful to myself but I didn’t care too much about reinventing the wheel. This was about learning, not making something new.&nbsp;
+
+I called it Pill. Because I wanted a floating pill to live on my computer that I could access anytime. The name was not creative but I wanted a more ambient experience than my current claude desktop app. I know there’s a Claude keyboard shortcut that gives you an input bar anywhere you want and you can start tasks there, but I wanted a bit more stuff accessible to me up-front.
+
+The idea was to be able to start, follow-up and end basic tasks all without switching to a new window. It was your second screen within your first screen. I do think it’s a rough implementation, but when I used it for real, it felt good to not have to go back to a full screen app for the small stuff.&nbsp;
+
+## Web Search
+
+I first started with building basic chat, then added web search. One would think web-search would be straightforward to execute but I spent a little more time getting this right than I thought I would. These two things took time:
+
+- Search depth: For any request, there are three paths the LLM can take: 1. No search, 2. One/few searches, 3 Many searches. Depending on whether the task was a simple output request (Summarize this text), fact lookup (What’s the capital of Turkey?) or deep research (Find me the financials of the top 10 public e-commerce companies), the path needed to change (reliably).&nbsp;
+- Visual results: I wanted images to be included in responses in ways that enriched information requests without needing to explicitly ask for them. If I ask for weekend treks near me, I wanna see pictures of what these beautiful treks look like. Claude (Sonnet 4.6) API’s responses were usually biased towards text out of the box even with web search.
+
+I fixed both these issues with some prompt-based scaffolding that did a check on requests coming in and decided to categorize them for search depth and visual-ness.
+
+## &nbsp;Tool Calls
+
+Then I started working on tool calls. I bundled the whole thing as Connectors as Claude does.
+
+I wanted the widest possible range of functionality so I added:
+
+{% table %}
+---
+- MCPs
+- Google Workspace, Notion, Files (local folder access), Playwright, Linear, Figma
+---
+- CLI tools
+- Github, Vercel, Supabase, PostHog, Eleven Labs,&nbsp;
+---
+- Skills
+- Token efficiency, Web search, MacOS usage etc.&nbsp;
+---
+- Shell
+- List of allowed bash commands
+{% /table %}
+
+One thing I learned from OpenClaw is that as you add more tools, the things you can do with your agent exponentially increase. But there is a ceiling to that. There is an argument to be made for an MVP to start with a specific set of tools with an audience in mind. 20% of them will support 80% of use cases in any given domain. I would have worked on that curated set (and not the random selection of tools above) if I were building an actual product but I wanted to explore something else – the ability of the agent to upgrade its capabilities based on needs.&nbsp;
+
+To support this, I created a Connector Assistant. It’s simply a separate chat interface where a user can go and request the assistant to find and research MCPs, CLI tools, Skills from the web, and then add it to the list of connectors. You can just tell it about a task and it will find any tools that you should add to do it.&nbsp;
+
+As I started adding connectors, I realized that in the current ecosystem, they keep breaking. Sometimes, the auth for an MCP will expire or sometimes a request will timeout. Other times a server rejects the sign-in entirely, or a CLI tool is installed or updated but silently signed out. A connector that says "connected" one day can quietly stop working the next, so the app has to expect failure as the normal case.&nbsp;
+
+The Connector Assistant was also a way to deal with these random unpredictable errors by giving each connector its own assistant chat thread that can surface errors, fix issues, reconnect etc. It’s not the cleanest solution of course and it kills my inner designer to add these many chat interfaces to the product but the volatility of this tech needs extreme flexibility. I’ll keep working on how to streamline this and maybe automatically handle errors and do maintenance.&nbsp;
+
+# So what's next?
+
+So far, barring minor UI bugs, the whole thing works great! But OMG it burns tokens faster than what I am comfortable paying for. I’m using the Sonnet-5 API hoping it’s the sweet spot to do most tasks but even this is too expensive. I can’t subsidize tokens like the frontier labs on their subscriptions. But it’s been a worthwhile experiment to try building a capable agent and an interface around it myself.&nbsp;
+
+Next… I will probably add a heartbeat feature (scheduled tasks), more complex memory .md files, browser use and overall harness refinement for long-running tasks. I’m sure there are many lessons to be learned here as well.
+
+Onward!\
